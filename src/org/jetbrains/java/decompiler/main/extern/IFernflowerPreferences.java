@@ -54,6 +54,9 @@ public interface IFernflowerPreferences {
   String LINE_SEPARATOR_WIN = "\r\n";
   String LINE_SEPARATOR_UNX = "\n";
 
+  String USE_JAD_VARNAMING = "jvn"; // Overwrites any Local Variable names with JAD style names
+  String USE_JAD_PARAMETER_RENAMING = "jpr"; // Include parameter names in JAD naming
+
   Map<String, Object> DEFAULTS = getDefaults();
 
   static Map<String, Object> getDefaults() {
@@ -99,6 +102,8 @@ public interface IFernflowerPreferences {
     defaults.put(BANNER, "");
     defaults.put(UNIT_TEST_MODE, "0");
     defaults.put(DUMP_ORIGINAL_LINES, "0");
+    defaults.put(USE_JAD_VARNAMING, "0");
+    defaults.put(USE_JAD_PARAMETER_RENAMING, "0");
 
     return Collections.unmodifiableMap(defaults);
   }
