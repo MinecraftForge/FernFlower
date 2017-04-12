@@ -11,6 +11,8 @@ Fernflower is licenced under the [Apache Licence Version 2.0](http://www.apache.
 
 ### Running from command line
 
+ForgeFlower requires Java 17 to run.
+
 `java -jar fernflower.jar [-<option>=<value>]* [<source>]+ <destination>`
 
 \* means 0 or more times\
