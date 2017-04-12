@@ -367,6 +367,7 @@ public class StackVarsProcessor {
       }
     }
 
+    /* This workaround isn't needed with Forge's cleanups.
     //workaround to preserve variable names
     AssignmentExprent assignmentExprent = (AssignmentExprent)exprent;
     if (assignmentExprent.getRight() instanceof VarExprent && assignmentExprent.getLeft() instanceof VarExprent leftExp) {
@@ -380,6 +381,7 @@ public class StackVarsProcessor {
         }
       }
     }
+    */
 
     if (isSelfReference && vernotreplaced) {
       return new int[]{-1, changed};
