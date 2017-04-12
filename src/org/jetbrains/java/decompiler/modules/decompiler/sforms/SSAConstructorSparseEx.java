@@ -24,6 +24,7 @@ import org.jetbrains.java.decompiler.util.SFormsFastMapDirect;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map.Entry;
 import java.util.Objects;
 
@@ -60,7 +61,7 @@ public class SSAConstructorSparseEx {
     // DotExporter.toDotFile(dgraph, new File("c:\\Temp\\gr12_my.dot"));
     // } catch(Exception ex) {ex.printStackTrace();}
 
-    HashSet<Integer> setInit = new HashSet<>();
+    List<Integer> setInit = new ArrayList<>();
     for (int i = 0; i < 64; i++) {
       setInit.add(i);
     }

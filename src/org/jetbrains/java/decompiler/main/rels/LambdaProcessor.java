@@ -19,6 +19,7 @@ import org.jetbrains.java.decompiler.util.InterpreterUtil;
 
 import java.io.IOException;
 import java.util.BitSet;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -110,6 +111,8 @@ public class LambdaProcessor {
       mt.releaseResources();
     }
 
+    Collections.sort(node.nested);
+
     // build class hierarchy on lambda
     for (ClassNode nd : node.nested) {
       if (nd.type == ClassNode.CLASS_LAMBDA) {
@@ -119,6 +122,7 @@ public class LambdaProcessor {
 
           parent_class.nested.add(nd);
           nd.parent = parent_class;
+          Collections.sort(parent_class.nested);
         }
       }
     }
