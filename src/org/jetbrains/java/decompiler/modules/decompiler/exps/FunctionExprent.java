@@ -2,6 +2,8 @@
 package org.jetbrains.java.decompiler.modules.decompiler.exps;
 
 import org.jetbrains.java.decompiler.code.CodeConstants;
+import org.jetbrains.java.decompiler.util.TextBuffer;
+import org.jetbrains.java.decompiler.main.DecompilerContext;
 import org.jetbrains.java.decompiler.main.collectors.BytecodeMappingTracer;
 import org.jetbrains.java.decompiler.modules.decompiler.ExprProcessor;
 import org.jetbrains.java.decompiler.modules.decompiler.vars.CheckTypesResult;
@@ -9,7 +11,6 @@ import org.jetbrains.java.decompiler.struct.gen.VarType;
 import org.jetbrains.java.decompiler.struct.match.MatchEngine;
 import org.jetbrains.java.decompiler.struct.match.MatchNode;
 import org.jetbrains.java.decompiler.util.ListStack;
-import org.jetbrains.java.decompiler.util.TextBuffer;
 
 import java.util.*;
 
@@ -182,6 +183,7 @@ public class FunctionExprent extends Exprent {
   private int funcType;
   private VarType implicitType;
   private final List<Exprent> lstOperands;
+  private boolean needsCast = true;
 
   public FunctionExprent(int funcType, ListStack<Exprent> stack, BitSet bytecodeOffsets) {
     this(funcType, new ArrayList<>(), bytecodeOffsets);
@@ -268,6 +270,46 @@ public class FunctionExprent extends Exprent {
 
     return exprType;
   }
+
+  @Override
+  public VarType getInferredExprType(VarType upperBound) {
+    if (funcType == FUNCTION_CAST) {
+      this.needsCast = true;
+      VarType right = lstOperands.get(0).getInferredExprType(upperBound);
+      VarType cast = lstOperands.get(1).getExprType();
+
+      if (upperBound != null && upperBound.isGeneric()) {
+        Map<VarType, List<VarType>> names = this.getNamedGenerics();
+        int arrayDim = 0;
+
+        if (upperBound.getArrayDim() == right.getArrayDim()) {
+          arrayDim = upperBound.getArrayDim();
+          upperBound = upperBound.resizeArrayDim(0);
+          right = right.resizeArrayDim(0);
+        }
+
+        List<VarType> types = names.get(right);
+        if (types == null) {
+          types = names.get(upperBound);
+        }
+
+        if (types != null) {
+          boolean anyMatch = false; //TODO: allMatch instead of anyMatch?
+          for (VarType type : types) {
+            anyMatch |= DecompilerContext.getStructContext().instanceOf(type.getValue(), cast.getValue());
+          }
+          if (anyMatch) {
+            this.needsCast = false;
+          }
+        }
+      }
+      else { //TODO: Capture generics to make cast better?
+        this.needsCast = right.getType() == CodeConstants.TYPE_NULL || !DecompilerContext.getStructContext().instanceOf(right.getValue(), cast.getValue());
+      }
+    }
+    return getExprType();
+  }
+
 
   @Override
   public int getExprentUse() {
@@ -438,8 +480,12 @@ public class FunctionExprent extends Exprent {
       case FUNCTION_BIT_NOT -> wrapOperandString(lstOperands.get(0), true, indent, tracer).prepend("~");
       case FUNCTION_BOOL_NOT -> wrapOperandString(lstOperands.get(0), true, indent, tracer).prepend("!");
       case FUNCTION_NEG -> wrapOperandString(lstOperands.get(0), true, indent, tracer).prepend("-");
-      case FUNCTION_CAST -> lstOperands.get(1).toJava(indent, tracer).enclose("(", ")")
-        .append(wrapOperandString(lstOperands.get(0), true, indent, tracer));
+      case FUNCTION_CAST -> {
+        if (!needsCast) {
+          yield lstOperands.get(0).toJava(indent, tracer);
+        }
+        yield lstOperands.get(1).toJava(indent, tracer).enclose("(", ")").append(wrapOperandString(lstOperands.get(0), true, indent, tracer));
+      }
       case FUNCTION_ARRAY_LENGTH -> {
         Exprent arr = lstOperands.get(0);
         TextBuffer res = wrapOperandString(arr, false, indent, tracer);
@@ -570,7 +616,7 @@ public class FunctionExprent extends Exprent {
     measureBytecode(values, lstOperands);
     measureBytecode(values);
   }
-  
+
   // *****************************************************************************
   // IMatchable implementation
   // *****************************************************************************
