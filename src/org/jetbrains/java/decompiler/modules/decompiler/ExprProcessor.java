@@ -1032,12 +1032,14 @@ public class ExprProcessor {
 
     if (unbox) {
       // "unbox" invocation parameters, e.g. 'byteSet.add((byte)123)' or 'new ShortContainer((short)813)'
-      if (exprent.type == Exprent.EXPRENT_INVOCATION && ((InvocationExprent)exprent).isBoxingCall()) {
-        InvocationExprent invocationExprent = (InvocationExprent)exprent;
-        exprent = invocationExprent.getParameters().get(0);
-        int paramType = invocationExprent.getDescriptor().params[0].getType();
-        if (exprent.type == Exprent.EXPRENT_CONST && ((ConstExprent)exprent).getConstType().getType() != paramType) {
-          leftType = new VarType(paramType);
+      if (exprent.type == Exprent.EXPRENT_INVOCATION) {
+        InvocationExprent invocationExprent = (InvocationExprent) exprent;
+        if (invocationExprent.isBoxingCall() && !invocationExprent.shouldForceBoxing()) {
+          exprent = invocationExprent.getParameters().get(0);
+          int paramType = invocationExprent.getDescriptor().params[0].getType();
+          if (exprent.type == Exprent.EXPRENT_CONST && ((ConstExprent) exprent).getConstType().getType() != paramType) {
+            leftType = new VarType(paramType);
+          }
         }
       }
     }

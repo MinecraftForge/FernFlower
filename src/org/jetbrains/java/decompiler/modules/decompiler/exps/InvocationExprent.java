@@ -59,6 +59,8 @@ public class InvocationExprent extends Exprent {
   private List<Exprent> parameters = new ArrayList<>();
   private List<PooledConstant> bootstrapArguments;
   private List<VarType> genericArgs = new ArrayList<>();
+  private boolean forceBoxing = false;
+  private boolean forceUnboxing = false;
 
   public InvocationExprent() {
     super(EXPRENT_INVOCATION);
@@ -256,10 +258,10 @@ public class InvocationExprent extends Exprent {
     }
 
     if (isStatic) {
-      if (isBoxingCall() && canIgnoreBoxing) {
+      if (isBoxingCall() && canIgnoreBoxing && !forceBoxing) {
         // process general "boxing" calls, e.g. 'Object[] data = { true }' or 'Byte b = 123'
         // here 'byte' and 'short' values do not need an explicit narrowing type cast
-        ExprProcessor.getCastedExprent(parameters.get(0), descriptor.params[0], buf, indent, false, false, false, false, tracer);
+        ExprProcessor.getCastedExprent(parameters.get(0), descriptor.params[0], buf, indent, false, false, true, false, tracer);
         return buf;
       }
 
@@ -305,16 +307,36 @@ public class InvocationExprent extends Exprent {
           TextUtil.writeQualifiedSuper(buf, super_qualifier);
         }
         else if (instance != null) {
-          TextBuffer res = instance.toJava(indent, tracer);
-
-          if (isUnboxingCall()) {
+          VarType leftType = new VarType(CodeConstants.TYPE_OBJECT, 0, className);
+          if (isUnboxingCall() && !forceUnboxing) {
             // we don't print the unboxing call - no need to bother with the instance wrapping / casting
-            buf.append(res);
+            if (instance.type == Exprent.EXPRENT_FUNCTION) {
+              FunctionExprent func = (FunctionExprent)instance;
+              if (func.getFuncType() == FunctionExprent.FUNCTION_CAST && func.getLstOperands().get(1).type == Exprent.EXPRENT_CONST) {
+                ConstExprent _const = (ConstExprent)func.getLstOperands().get(1);
+                boolean skipCast = false;
+
+                if (func.getLstOperands().get(0).type == Exprent.EXPRENT_VAR) {
+                  VarType inferred = func.getLstOperands().get(0).getInferredExprType(leftType);
+                  skipCast = inferred.getType() != CodeConstants.TYPE_OBJECT ||
+                    DecompilerContext.getStructContext().instanceOf(inferred.getValue(), this.className);
+                } else if (this.className.equals(_const.getConstType().getValue())) {
+                  skipCast = true;
+                }
+
+                if (skipCast) {
+                  buf.append(func.getLstOperands().get(0).toJava(indent, tracer));
+                  return buf;
+                }
+              }
+            }
+            buf.append(instance.toJava(indent, tracer));
             return buf;
           }
 
+          TextBuffer res = instance.toJava(indent, tracer);
+
           VarType rightType = instance.getExprType();
-          VarType leftType = new VarType(CodeConstants.TYPE_OBJECT, 0, className);
 
           if (rightType.equals(VarType.VARTYPE_OBJECT) && !leftType.equals(rightType)) {
             buf.append("((").append(ExprProcessor.getCastTypeName(leftType, Collections.emptyList())).append(")");
@@ -410,9 +432,88 @@ public class InvocationExprent extends Exprent {
       }
     }
 
-    boolean firstParameter = true;
     int start = isEnum ? 2 : 0;
+    List<Exprent> parameters = new ArrayList<>(this.parameters);
+    VarType[] types = Arrays.copyOf(descriptor.params, descriptor.params.length);
     for (int i = start; i < parameters.size(); i++) {
+      Exprent par = parameters.get(i);
+      if (par.type == Exprent.EXPRENT_INVOCATION) {
+          InvocationExprent inv = (InvocationExprent)par;
+        // "unbox" invocation parameters, e.g. 'byteSet.add((byte)123)' or 'new ShortContainer((short)813)'
+        //However, we must make sure we don't accidentally make the call ambiguous.
+        //An example being List<Integer>, remove(Integer.valueOf(1)) and remove(1) are different functions
+        if (inv.isBoxingCall()) {
+          Exprent value = inv.parameters.get(0);
+          types[i] = value.getExprType(); //Infer?
+          //Unboxing in this case is lossy, so we need to explicitly set the type
+          if (types[i].getTypeFamily() == CodeConstants.TYPE_FAMILY_INTEGER) {
+            types[i] =
+              "java/lang/Short".equals(inv.className) ? VarType.VARTYPE_SHORT :
+              "java/lang/Byte".equals(inv.className) ? VarType.VARTYPE_BYTE :
+              "java/lang/Integer".equals(inv.className) ? VarType.VARTYPE_INT :
+               VarType.VARTYPE_CHAR;
+          }
+
+          int count = 0;
+          StructClass stClass = DecompilerContext.getStructContext().getClass(className);
+          if (stClass != null) {
+            nextMethod:
+            for (StructMethod mt : stClass.getMethods()) {
+              if (name.equals(mt.getName())) {
+                MethodDescriptor md = MethodDescriptor.parseDescriptor(mt.getDescriptor());
+                if (md.params.length == descriptor.params.length) {
+                  for (int x = 0; x < md.params.length; x++) {
+                    if (md.params[x].getTypeFamily() != descriptor.params[x].getTypeFamily() &&
+                        md.params[x].getTypeFamily() != types[x].getTypeFamily()) {
+                      continue nextMethod;
+                    }
+                  }
+                  count++;
+                }
+              }
+            }
+          }
+
+          if (count != matches.size()) { //We become more ambiguous? Lets keep the explicit boxing
+            types[i] = descriptor.params[i];
+            inv.forceBoxing = true;
+          } else {
+            value.addBytecodeOffsets(inv.bytecode); //Keep the bytecode for matching/debug
+            parameters.set(i, value);
+          }
+        }
+        // We also need to care about when things are intentionally unboxed to call a different overloaded method,
+        //and skipping unboxing causes us to call ourselves.
+        //  EXA:
+        //  int compare(Integer a, Integer b) { return this.compare(a.intValue(), b.intValue()); }
+        //  int compare(int a, int b) { return a - b; }
+        //  Allowing the first function to unbox would cause infinite recursion
+        // Right now it just do a quick check, but a proper check would be to do compiler like inference of argument
+        // types, and check unboxing as needed. Currently it causes some false forces
+        else if (inv.isUnboxingCall() && !inv.shouldForceUnboxing()) {
+          StructClass stClass = DecompilerContext.getStructContext().getClass(className);
+          if (stClass != null) {
+            for (StructMethod mt : stClass.getMethods()) {
+              if (name.equals(mt.getName()) && !stringDescriptor.equals(mt.getDescriptor())) {
+                MethodDescriptor md = MethodDescriptor.parseDescriptor(mt.getDescriptor());
+                if (md.params.length == descriptor.params.length) {
+                  if (md.params[i].getType() == CodeConstants.TYPE_OBJECT) {
+                    if (DecompilerContext.getStructContext().instanceOf(inv.getInstance().getExprType().getValue(), md.params[i].getValue())) {
+                      inv.forceUnboxing(true);
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+
+    boolean firstParameter = true;
+    for (int i = start; i < this.parameters.size(); i++) {
       if (mask == null || mask.get(i) == null) {
         TextBuffer buff = new TextBuffer();
         boolean ambiguous = setAmbiguousParameters.get(i);
@@ -446,7 +547,7 @@ public class InvocationExprent extends Exprent {
         */
 
         // 'byte' and 'short' literals need an explicit narrowing type cast when used as a parameter
-        ExprProcessor.getCastedExprent(parameters.get(i), descriptor.params[i], buff, indent, true, ambiguous, true, true, tracer);
+        ExprProcessor.getCastedExprent(this.parameters.get(i), types[i], buff, indent, true, ambiguous, true, true, tracer);
 
         // the last "new Object[0]" in the vararg call is not printed
         if (buff.length() > 0) {
@@ -499,7 +600,7 @@ public class InvocationExprent extends Exprent {
         }
 
         if (paramType == CodeConstants.TYPE_BYTECHAR || paramType == CodeConstants.TYPE_SHORTCHAR) {
-          if (className.equals("java/lang/Character")) {
+          if (className.equals("java/lang/Character") || className.equals("java/lang/Short")) {
             return true;
           }
         }
@@ -554,6 +655,18 @@ public class InvocationExprent extends Exprent {
     return !isStatic && parameters.size() == 0 && className.equals(UNBOXING_METHODS.get(name));
   }
 
+  public boolean shouldForceBoxing() {
+    return forceBoxing;
+  }
+
+  public void forceUnboxing(boolean value) {
+    this.forceUnboxing = value;
+  }
+
+  public boolean shouldForceUnboxing() {
+    return this.forceUnboxing;
+  }
+
   private List<StructMethod> getMatchedDescriptors() {
     List<StructMethod> matches = new ArrayList<>();
     StructClass cl = DecompilerContext.getStructContext().getClass(className);
@@ -583,6 +696,8 @@ public class InvocationExprent extends Exprent {
       return EMPTY_BIT_SET;
     }
 
+    BitSet missed = new BitSet(parameters.size());
+
     // check if a call is unambiguous
     StructMethod mt = cl.getMethod(InterpreterUtil.makeUniqueKey(name, stringDescriptor));
     if (mt != null) {
@@ -592,18 +707,50 @@ public class InvocationExprent extends Exprent {
         for (int i = 0; i < md.params.length; i++) {
           if (!md.params[i].equals(parameters.get(i).getExprType())) {
             exact = false;
-            break;
+            missed.set(i);
           }
         }
         if (exact) return EMPTY_BIT_SET;
       }
     }
 
+    List<StructMethod> mtds = new ArrayList<>();
+    for (StructMethod mtt : matches) {
+      boolean failed = false;
+      MethodDescriptor md = MethodDescriptor.parseDescriptor(mtt.getDescriptor());
+      for (int i = 0; i < parameters.size(); i++) {
+        VarType ptype = parameters.get(i).getExprType();
+        if (!missed.get(i)) {
+          if (!md.params[i].equals(ptype)) {
+            failed = true;
+            break;
+          }
+        }
+        else {
+          if (md.params[i].getType() == CodeConstants.TYPE_OBJECT) {
+            if (ptype.getType() != CodeConstants.TYPE_NULL) {
+              if (!DecompilerContext.getStructContext().instanceOf(ptype.getValue(), md.params[i].getValue())) {
+                failed = true;
+                break;
+              }
+            }
+          }
+        }
+      }
+      if (!failed) {
+        mtds.add(mtt);
+      }
+    }
+    //TODO: This still causes issues in the case of:
+    //add(Object)
+    //add(Object...)
+    //Try and detect varargs/array?
+
     // mark parameters
     BitSet ambiguous = new BitSet(descriptor.params.length);
     for (int i = 0; i < descriptor.params.length; i++) {
       VarType paramType = descriptor.params[i];
-      for (StructMethod mtt : matches) {
+      for (StructMethod mtt : mtds) {
 
         GenericMethodDescriptor gen = mtt.getSignature(); //TODO: Find synthetic flags for params, as Enum generic signatures do no contain the String,int params
         if (gen != null && gen.parameterTypes.size() > i && gen.parameterTypes.get(i).isGeneric()) {
