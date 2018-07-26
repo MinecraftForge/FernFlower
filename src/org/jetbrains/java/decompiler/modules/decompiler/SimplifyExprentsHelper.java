@@ -74,6 +74,10 @@ public class SimplifyExprentsHelper {
           if (changed) {
             break;
           }
+
+          if (!st.getStats().isEmpty() && hasQualifiedNewGetClass(st, st.getStats().get(0))) {
+            break;
+          }
         }
 
         res |= changed;
@@ -508,21 +512,53 @@ public class SimplifyExprentsHelper {
     return false;
   }
 
+  private static boolean hasQualifiedNewGetClass(Statement parent, Statement child) {
+    if (child.type == Statement.StatementType.BASIC_BLOCK && child.getExprents() != null && !child.getExprents().isEmpty()) {
+      Exprent firstExpr = child.getExprents().get(child.getExprents().size() - 1);
+
+      if (parent.type == Statement.StatementType.IF) {
+        if (isQualifiedNewGetClass(firstExpr, ((IfStatement)parent).getHeadexprent().getCondition())) {
+          child.getExprents().remove(firstExpr);
+          return true;
+        }
+      }
+      // TODO DoStatements ?
+    }
+    return false;
+  }
+
   private static boolean isQualifiedNewGetClass(Exprent first, Exprent second) {
     if (first.type == Exprent.EXPRENT_INVOCATION) {
       InvocationExprent invocation = (InvocationExprent)first;
 
-      if (!invocation.isStatic() && invocation.getInstance().type == Exprent.EXPRENT_VAR && invocation.getName().equals("getClass") &&
-          invocation.getStringDescriptor().equals("()Ljava/lang/Class;")) {
+      if ((!invocation.isStatic() &&
+           invocation.getName().equals("getClass") && invocation.getStringDescriptor().equals("()Ljava/lang/Class;")) // J8
+        || (invocation.isStatic() && invocation.getClassName().equals("java/util/Objects") && invocation.getName().equals("requireNonNull")
+            && invocation.getStringDescriptor().equals("(Ljava/lang/Object;)Ljava/lang/Object;"))) { // J9+
 
-        List<Exprent> lstExprents = second.getAllExprents();
+        if (invocation.isSyntheticNullCheck()) {
+          return true;
+        }
+
+        LinkedList<Exprent> lstExprents = new LinkedList<>();
         lstExprents.add(second);
 
-        for (Exprent expr : lstExprents) {
+        final Exprent target;
+        if (invocation.isStatic()) { // Objects.requireNonNull(target) (J9+)
+          // detect target type
+          target = invocation.getParameters().get(0);
+        } else { // target.getClass() (J8)
+          target = invocation.getInstance();
+        }
+
+        while (!lstExprents.isEmpty()) {
+          Exprent expr = lstExprents.removeFirst();
+          lstExprents.addAll(expr.getAllExprents());
           if (expr.type == Exprent.EXPRENT_NEW) {
             NewExprent newExpr = (NewExprent)expr;
             if (newExpr.getConstructor() != null && !newExpr.getConstructor().getParameters().isEmpty() &&
-                newExpr.getConstructor().getParameters().get(0).equals(invocation.getInstance())) {
+              (newExpr.getConstructor().getParameters().get(0).equals(target) ||
+                isUnambiguouslySameParam(invocation.isStatic(), target, newExpr.getConstructor().getParameters()))) {
 
               String classname = newExpr.getNewType().getValue();
               ClassNode node = DecompilerContext.getClassProcessor().getMapRootClasses().get(classname);
@@ -536,6 +572,27 @@ public class SimplifyExprentsHelper {
     }
 
     return false;
+  }
+
+  private static boolean isUnambiguouslySameParam(boolean isStatic, Exprent target, List<Exprent> parameters) {
+    boolean firstParamOfSameType = parameters.get(0).getExprType().equals(target.getExprType());
+    if (!isStatic) { // X.getClass()/J8, this is less likely to overlap with legitimate use
+      return firstParamOfSameType;
+    }
+    // Calling Objects.requireNonNull and discarding the result is a common pattern in normal code, so we have to be a bit more
+    // cautious about stripping calls when a constructor takes parameters of the instance type
+    // ex. given a class X, `Objects.requireNonNull(someInstanceOfX); new X(someInstanceOfX)` should not have the rNN stripped.
+    if (!firstParamOfSameType) {
+      return false;
+    }
+
+    for (int i = 1; i < parameters.size(); i++) {
+      if (parameters.get(i).getExprType().equals(target.getExprType())) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   // propagate (var = new X) forward to the <init> invocation

@@ -596,6 +596,23 @@ public class ExprProcessor {
           break;
         case CodeConstants.opc_pop:
           stack.pop();
+          // check for synthetic getClass (J8) / Objects.requireNonNull() (J9+) calls added by the compiler
+          // see https://stackoverflow.com/a/20130641
+          if (i > 0) {
+            Exprent last = exprList.get(exprList.size() - 1);
+            if (last.type == Exprent.EXPRENT_ASSIGNMENT && ((AssignmentExprent)last).getRight().type == Exprent.EXPRENT_INVOCATION) {
+              InvocationExprent invocation = (InvocationExprent) ((AssignmentExprent) last).getRight();
+              if (i + 1 < seq.length()) {
+                if ((!invocation.isStatic() && invocation.getName().equals("getClass") && invocation.getStringDescriptor().equals("()Ljava/lang/Class;")) // J8
+                  || (invocation.isStatic() && invocation.getClassName().equals("java/util/Objects") && invocation.getName().equals("requireNonNull") && invocation.getStringDescriptor().equals("(Ljava/lang/Object;)Ljava/lang/Object;"))) { // J9+
+                  int nextOpc = seq.getInstr(i + 1).opcode;
+                  if (nextOpc >= opc_aconst_null && nextOpc <= opc_ldc2_w) {
+                    invocation.setSyntheticNullCheck();
+                  }
+                }
+              }
+            }
+          }
           break;
         case CodeConstants.opc_pop2:
           if (stack.getByOffset(-1).getExprType().getStackSize() == 1) {
