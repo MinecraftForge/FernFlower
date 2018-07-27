@@ -9,6 +9,7 @@ import org.jetbrains.java.decompiler.main.CancellationManager;
 import org.jetbrains.java.decompiler.main.ClassesProcessor;
 import org.jetbrains.java.decompiler.main.DecompilerContext;
 import org.jetbrains.java.decompiler.main.collectors.BytecodeMappingTracer;
+import org.jetbrains.java.decompiler.main.extern.IFernflowerPreferences;
 import org.jetbrains.java.decompiler.modules.decompiler.StatEdge.EdgeType;
 import org.jetbrains.java.decompiler.modules.decompiler.exps.*;
 import org.jetbrains.java.decompiler.modules.decompiler.sforms.DirectGraph;
@@ -606,7 +607,7 @@ public class ExprProcessor {
                 if ((!invocation.isStatic() && invocation.getName().equals("getClass") && invocation.getStringDescriptor().equals("()Ljava/lang/Class;")) // J8
                   || (invocation.isStatic() && invocation.getClassName().equals("java/util/Objects") && invocation.getName().equals("requireNonNull") && invocation.getStringDescriptor().equals("(Ljava/lang/Object;)Ljava/lang/Object;"))) { // J9+
                   int nextOpc = seq.getInstr(i + 1).opcode;
-                  if (nextOpc >= opc_aconst_null && nextOpc <= opc_ldc2_w) {
+                  if (nextOpc >= CodeConstants.opc_aconst_null && nextOpc <= CodeConstants.opc_ldc2_w) {
                     invocation.setSyntheticNullCheck();
                   }
                 }
@@ -762,12 +763,14 @@ public class ExprProcessor {
   ) {
     List<ClassesProcessor.ClassNode> enclosingClasses = enclosingClassList();
     StringBuilder curPathBuilder = new StringBuilder(type.getValue().substring(0, type.getValue().lastIndexOf('/') + 1));
+    boolean forceShouldWrite = DecompilerContext.getOption(IFernflowerPreferences.QUALIFY_INNER_CLASSES);
     for (int i = 0; i < nestedTypes.size(); i++) {
       String nestedType = nestedTypes.get(i);
       boolean shouldWrite = true;
       if (!enclosingClasses.isEmpty() && i != nestedTypes.size() - 1) {
         String enclosingType = enclosingClasses.remove(0).simpleName;
-        shouldWrite = !nestedType.equals(enclosingType)
+        shouldWrite = forceShouldWrite
+          || !nestedType.equals(enclosingType)
           // Also write out the enclosing class if we are the outermost, and we're in the type params
           || enclosingClasses.isEmpty() && DecompilerContext.getOption(DecompilerContext.IN_CLASS_TYPE_PARAMS);
       }
