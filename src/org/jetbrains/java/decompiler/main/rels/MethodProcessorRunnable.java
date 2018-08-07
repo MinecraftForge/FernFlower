@@ -202,6 +202,10 @@ public class MethodProcessorRunnable implements Runnable {
 
       LabelHelper.identifyLabels(root);
 
+      if (TryHelper.enhanceTryStats(root, mt)) {
+        continue;
+      }
+
       if (InlineSingleBlockHelper.inlineSingleBlocks(root)) {
         continue;
       }
