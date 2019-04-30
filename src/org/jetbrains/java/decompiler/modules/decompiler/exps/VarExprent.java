@@ -14,6 +14,7 @@ import org.jetbrains.java.decompiler.modules.decompiler.stats.Statement;
 import org.jetbrains.java.decompiler.modules.decompiler.vars.CheckTypesResult;
 import org.jetbrains.java.decompiler.modules.decompiler.vars.VarProcessor;
 import org.jetbrains.java.decompiler.modules.decompiler.vars.VarVersionPair;
+import org.jetbrains.java.decompiler.struct.StructClass;
 import org.jetbrains.java.decompiler.struct.attr.StructGeneralAttribute;
 import org.jetbrains.java.decompiler.struct.attr.StructLocalVariableTableAttribute;
 import org.jetbrains.java.decompiler.struct.attr.StructLocalVariableTableAttribute.LocalVariable;
@@ -250,7 +251,21 @@ public class VarExprent extends Exprent {
 
     VarType vt = null;
     if (processor != null) {
-      vt = processor.getVarType(getVarVersionPair());
+      String name = processor.getVarName(getVarVersionPair());
+      vt = Exprent.inferredLambdaTypes.get().get(name);
+      if (vt == null) {
+        vt = processor.getVarType(getVarVersionPair());
+        if (processor.getThisVars().containsKey(getVarVersionPair())) {
+          String qaulName = processor.getThisVars().get(getVarVersionPair());
+          StructClass cls = DecompilerContext.getStructContext().getClass(qaulName);
+          if (cls.getSignature() != null) {
+            vt = cls.getSignature().genericType;
+          }
+          else if (vt == null) {
+            vt = new VarType(CodeConstants.TYPE_OBJECT, 0, qaulName);
+          }
+        }
+      }
     }
 
     if (vt == null || (varType != null && varType.getType() != CodeConstants.TYPE_UNKNOWN)) {
