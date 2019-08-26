@@ -32,25 +32,6 @@ public class SFormsFastMapDirect {
     }
   }
 
-  public SFormsFastMapDirect(SFormsFastMapDirect map) {
-    for (int i = 2; i >= 0; i--) {
-      FastSparseSet<Integer>[] arr = map.elements[i];
-      int[] arrnext = map.next[i];
-
-      int length = arr.length;
-      @SuppressWarnings("unchecked") FastSparseSet<Integer>[] arrnew = new FastSparseSet[length];
-      int[] arrnextnew = new int[length];
-
-      System.arraycopy(arr, 0, arrnew, 0, length);
-      System.arraycopy(arrnext, 0, arrnextnew, 0, length);
-
-      elements[i] = arrnew;
-      next[i] = arrnextnew;
-
-      size = map.size;
-    }
-  }
-
   public SFormsFastMapDirect getCopy() {
 
     SFormsFastMapDirect map = new SFormsFastMapDirect(false);

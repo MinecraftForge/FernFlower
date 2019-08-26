@@ -102,7 +102,7 @@ public class SSAConstructorSparseEx {
       mergeInVarMaps(node, dgraph);
 
       SFormsFastMapDirect varmap = inVarVersions.get(node.id);
-      varmap = new SFormsFastMapDirect(varmap);
+      varmap = varmap.getCopy();
 
       SFormsFastMapDirect[] varmaparr = new SFormsFastMapDirect[]{varmap, null};
 
@@ -159,7 +159,7 @@ public class SSAConstructorSparseEx {
 
             SFormsFastMapDirect varmapFalse;
             if (varmaparr[1] == null) {
-              varmapFalse = new SFormsFastMapDirect(varmaparr[0]);
+              varmapFalse = varmaparr[0].getCopy();
             }
             else {
               varmapFalse = varmaparr[1];
@@ -179,7 +179,7 @@ public class SSAConstructorSparseEx {
           case FunctionExprent.FUNCTION_CADD -> {
             processExprent(func.getLstOperands().get(0), varmaparr);
 
-            SFormsFastMapDirect[] varmaparrAnd = new SFormsFastMapDirect[]{new SFormsFastMapDirect(varmaparr[0]), null};
+            SFormsFastMapDirect[] varmaparrAnd = new SFormsFastMapDirect[]{varmaparr[0].getCopy(), null};
 
             processExprent(func.getLstOperands().get(1), varmaparrAnd);
 
@@ -194,7 +194,7 @@ public class SSAConstructorSparseEx {
             processExprent(func.getLstOperands().get(0), varmaparr);
 
             SFormsFastMapDirect[] varmaparrOr =
-              new SFormsFastMapDirect[]{new SFormsFastMapDirect(varmaparr[varmaparr[1] == null ? 0 : 1]), null};
+              new SFormsFastMapDirect[]{varmaparr[varmaparr[1] == null ? 0 : 1].getCopy(), null};
 
             processExprent(func.getLstOperands().get(1), varmaparrOr);
 
@@ -245,7 +245,7 @@ public class SSAConstructorSparseEx {
       Integer varindex = vardest.getIndex();
       FastSparseSet<Integer> vers = varmap.get(varindex);
 
-      int cardinality = vers.getCardinality();
+      int cardinality = vers != null ? vers.getCardinality() : 0;
       if (cardinality == 1) { // == 1
         // set version
         Integer it = vers.iterator().next();
@@ -270,7 +270,17 @@ public class SSAConstructorSparseEx {
           // create new phi node
           phi.put(new VarVersionPair(varindex, nextver), vers);
         }
-      } // 0 means uninitialized variable, which is impossible
+      } // 0 means uninitialized variable
+      else if (cardinality == 0) {
+        if (vardest.getVersion() != 0) {
+          setCurrentVar(varmap, varindex, vardest.getVersion());
+        }
+        else {
+          Integer nextver = getNextFreeVersion(varindex);
+          vardest.setVersion(nextver);
+          setCurrentVar(varmap, varindex, nextver);
+        }
+      }
     }
   }
 

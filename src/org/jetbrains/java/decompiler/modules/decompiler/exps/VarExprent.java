@@ -47,6 +47,7 @@ public class VarExprent extends Exprent {
   private boolean classDef = false;
   private boolean stack = false;
   private LocalVariable lvt = null;
+  private boolean isEffectivelyFinal = false;
 
   public VarExprent(int index, VarType varType, VarProcessor processor) {
     this(index, varType, processor, null);
@@ -99,6 +100,7 @@ public class VarExprent extends Exprent {
     var.setClassDef(classDef);
     var.setStack(stack);
     var.setLVT(lvt);
+    var.setEffectivelyFinal(isEffectivelyFinal);
     return var;
   }
 
@@ -324,6 +326,14 @@ public class VarExprent extends Exprent {
 
   public LocalVariable getLVT() {
     return lvt;
+  }
+
+  public void setEffectivelyFinal(boolean isEffectivelyFinal) {
+    this.isEffectivelyFinal = isEffectivelyFinal;
+  }
+
+  public boolean isEffectivelyFinal() {
+    return this.isEffectivelyFinal;
   }
 
   public String getName() {

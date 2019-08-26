@@ -2,6 +2,7 @@
 package org.jetbrains.java.decompiler.modules.decompiler.vars;
 
 import org.jetbrains.java.decompiler.modules.decompiler.decompose.IGraphNode;
+import org.jetbrains.java.decompiler.struct.attr.StructLocalVariableTableAttribute.LocalVariable;
 import org.jetbrains.java.decompiler.util.SFormsFastMapDirect;
 
 import java.util.ArrayList;
@@ -19,10 +20,16 @@ public class VarVersionNode implements IGraphNode {
 
   public int flags;
   public SFormsFastMapDirect live = new SFormsFastMapDirect();
+  public LocalVariable lvt = null;
 
   public VarVersionNode(int var, int version) {
     this.var = var;
     this.version = version;
+  }
+
+  public VarVersionNode(int var, int version, LocalVariable lvt) {
+    this(var, version);
+    this.lvt = lvt;
   }
 
   public void addPredecessor(VarVersionEdge edge) {
