@@ -47,6 +47,8 @@ public class InvocationExprent extends Exprent {
 
   private static final BitSet EMPTY_BIT_SET = new BitSet(0);
 
+  private static final VarType JAVA_NIO_BUFFER = new VarType(CodeConstants.TYPE_OBJECT, 0, "java/nio/Buffer");
+
   private String name;
   private String className;
   private boolean isStatic;
@@ -653,6 +655,12 @@ public class InvocationExprent extends Exprent {
           }
           else if (instance.getPrecedence() > getPrecedence() && !skippedCast) {
             buf.append("(").append(res).append(")");
+          }
+          //Java 9+ adds some overrides to java/nio/Buffer's subclasses that alter the return types.
+          //This isn't properly handled by the compiler. So explicit casts are needed to retain J8 compatibility.
+          else if (JAVA_NIO_BUFFER.equals(descriptor.ret) && !JAVA_NIO_BUFFER.equals(rightType)
+              && DecompilerContext.getStructContext().instanceOf(rightType.getValue(), JAVA_NIO_BUFFER.getValue())) {
+              buf.append("((").append(ExprProcessor.getCastTypeName(JAVA_NIO_BUFFER, Collections.emptyList())).append(")").append(res).append(")");
           }
           else {
             buf.append(res);
