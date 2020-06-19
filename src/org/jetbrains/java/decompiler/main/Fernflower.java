@@ -26,11 +26,33 @@ public class Fernflower implements IDecompiledData {
   private final IIdentifierRenamer helper;
   private final IdentifierConverter converter;
 
+  private static int getThreads(Map<String, Object> options, final String def) {
+    String thr = options != null ? (String) options.getOrDefault(IFernflowerPreferences.THREADS, def) : def;
+    if ("AUTO".equals(thr)) {
+      return Runtime.getRuntime().availableProcessors();
+    } else {
+      try {
+        return Integer.parseInt(thr);
+      } catch (NumberFormatException e) {
+        throw new RuntimeException("Malformed threads option: " + thr);
+      }
+    }
+  }
+
   public Fernflower(IBytecodeProvider provider,
                     IResultSaver saver,
                     @Nullable Map<String, Object> customProperties,
                     IFernflowerLogger logger,
                     @Nullable CancellationManager cancellationManager) {
+    this(provider, saver, customProperties, logger, cancellationManager, getThreads(customProperties, "AUTO"));
+  }
+
+  public Fernflower(IBytecodeProvider provider,
+                    IResultSaver saver,
+                    @Nullable Map<String, Object> customProperties,
+                    IFernflowerLogger logger,
+                    @Nullable CancellationManager cancellationManager,
+                    int threads) {
     Map<String, Object> properties = new HashMap<>(IFernflowerPreferences.DEFAULTS);
     if (customProperties != null) {
       properties.putAll(customProperties);
@@ -76,7 +98,7 @@ public class Fernflower implements IDecompiledData {
       }
     }
 
-    DecompilerContext context = new DecompilerContext(properties, logger, structContext, classProcessor, interceptor, cancellationManager, renamerFactory);
+    DecompilerContext context = new DecompilerContext(properties, threads, logger, structContext, classProcessor, interceptor, cancellationManager, renamerFactory);
     DecompilerContext.setCurrentContext(context);
 
     String vendor = System.getProperty("java.vendor", "missing vendor");
@@ -145,6 +167,17 @@ public class Fernflower implements IDecompiledData {
     }
     else {
       return entryName.substring(0, entryName.lastIndexOf(".class")) + ".java";
+    }
+  }
+
+  @Override
+  public boolean processClass(StructClass cl) {
+    try {
+      classProcessor.processClass(cl);
+      return true;
+    } catch (Throwable t) {
+      DecompilerContext.getLogger().writeMessage("Class " + cl.qualifiedName + " couldn't be processed.", t);
+      return false;
     }
   }
 

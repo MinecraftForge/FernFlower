@@ -42,6 +42,7 @@ public interface IFernflowerPreferences {
   String QUALIFY_INNER_CLASSES = "qin";
   String EXPLICIT_GENERIC_ARGUMENTS = "ega";
   String INLINE_SIMPLE_LAMBDAS = "isl";
+  String THREADS = "thr";
 
   String LOG_LEVEL = "log";
   String MAX_PROCESSING_METHOD = "mpm";
@@ -101,6 +102,7 @@ public interface IFernflowerPreferences {
     defaults.put(QUALIFY_INNER_CLASSES, "1");
     defaults.put(EXPLICIT_GENERIC_ARGUMENTS, "0");
     defaults.put(INLINE_SIMPLE_LAMBDAS, "1");
+    defaults.put(THREADS, "AUTO");
 
     defaults.put(LOG_LEVEL, IFernflowerLogger.Severity.INFO.name());
     defaults.put(MAX_PROCESSING_METHOD, "0");

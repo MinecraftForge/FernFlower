@@ -110,7 +110,7 @@ public class ConsoleDecompiler implements IBytecodeProvider, IResultSaver {
       return;
     }
 
-    PrintStreamLogger logger = new PrintStreamLogger(System.out);
+    IFernflowerLogger logger = new ThreadedPrintStreamLogger(System.out);
     ConsoleDecompiler decompiler = new ConsoleDecompiler(destination, mapOptions, logger);
 
     for (File library : libraries) {
@@ -148,7 +148,9 @@ public class ConsoleDecompiler implements IBytecodeProvider, IResultSaver {
 
   public ConsoleDecompiler(File destination, Map<String, Object> options, IFernflowerLogger logger) {
     root = destination;
-    engine = new Fernflower(this, root.isDirectory() ? this : new SingleFileSaver(destination), options, logger);
+
+    IResultSaver saver = root.isDirectory() ? this : new SingleFileSaver(destination);
+    engine = new Fernflower(this, saver, options, logger);
   }
 
   public ConsoleDecompiler(File destination, Map<String, Object> options, IFernflowerLogger logger, CancellationManager cancellationManager) {

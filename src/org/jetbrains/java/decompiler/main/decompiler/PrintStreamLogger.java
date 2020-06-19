@@ -32,6 +32,22 @@ public class PrintStreamLogger extends IFernflowerLogger {
   }
 
   @Override
+  public void startProcessingClass(String className) {
+    if (accepts(Severity.INFO)) {
+      writeMessage("PreProcessing class " + className, Severity.INFO);
+      ++indent;
+    }
+  }
+
+  @Override
+  public void endProcessingClass() {
+    if (accepts(Severity.INFO)) {
+      --indent;
+      writeMessage("... done", Severity.INFO);
+    }
+  }
+
+  @Override
   public void startReadingClass(String className) {
     if (accepts(Severity.INFO)) {
       writeMessage("Decompiling class " + className, Severity.INFO);

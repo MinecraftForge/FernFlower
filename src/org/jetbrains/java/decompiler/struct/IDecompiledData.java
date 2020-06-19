@@ -5,5 +5,7 @@ public interface IDecompiledData {
 
   String getClassEntryName(StructClass cl, String entryname);
 
+  boolean processClass(StructClass cl);
+
   String getClassContent(StructClass cl);
 }

@@ -13,6 +13,7 @@ import org.jetbrains.java.decompiler.main.extern.IVariableNamingFactory;
 import org.jetbrains.java.decompiler.modules.renamer.PoolInterceptor;
 import org.jetbrains.java.decompiler.struct.StructContext;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -39,12 +40,14 @@ public class DecompilerContext {
   private final CancellationManager cancellationManager;
   @NotNull
   private final IVariableNamingFactory renamerFactory;
+  private final int threads;
   private ImportCollector importCollector;
   private VarProcessor varProcessor;
   private CounterContainer counterContainer;
   private BytecodeSourceMapper bytecodeSourceMapper;
 
   public DecompilerContext(@NotNull Map<String, Object> properties,
+                           int threads,
                            @NotNull IFernflowerLogger logger,
                            @NotNull StructContext structContext,
                            @NotNull ClassesProcessor classProcessor,
@@ -62,6 +65,7 @@ public class DecompilerContext {
     }
 
     this.properties = properties;
+    this.threads = threads;
     this.logger = logger;
     this.structContext = structContext;
     this.classProcessor = classProcessor;
@@ -69,6 +73,19 @@ public class DecompilerContext {
     this.renamerFactory = renamerFactory;
     this.counterContainer = new CounterContainer();
     this.cancellationManager = cancellationManager;
+  }
+
+  //Safe to not copy some of the fields.
+  @SuppressWarnings ("CopyConstructorMissesField")
+  private DecompilerContext(DecompilerContext other) {
+    this.properties = new HashMap<>(other.properties);
+    this.logger = other.logger;
+    this.structContext = other.structContext;
+    this.classProcessor = other.classProcessor;
+    this.poolInterceptor = other.poolInterceptor;
+    this.cancellationManager = other.cancellationManager;
+    this.renamerFactory = other.renamerFactory;
+    this.threads = other.threads;
   }
 
   // *****************************************************************************
@@ -83,6 +100,14 @@ public class DecompilerContext {
 
   public static void setCurrentContext(DecompilerContext context) {
     currentContext.set(context);
+  }
+
+  public static void cloneContext(DecompilerContext root) {
+    DecompilerContext current = getCurrentContext();
+    if (current == null) {
+      current = new DecompilerContext(root);
+      setCurrentContext(current);
+    }
   }
 
   public static void setProperty(String key, Object value) {
@@ -117,6 +142,10 @@ public class DecompilerContext {
   public static String getNewLineSeparator() {
     return getOption(IFernflowerPreferences.NEW_LINE_SEPARATOR) ?
            IFernflowerPreferences.LINE_SEPARATOR_UNX : IFernflowerPreferences.LINE_SEPARATOR_WIN;
+  }
+
+  public static int getThreads() {
+    return getCurrentContext().threads;
   }
 
   public static IFernflowerLogger getLogger() {
