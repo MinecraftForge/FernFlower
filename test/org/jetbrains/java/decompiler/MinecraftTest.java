@@ -65,7 +65,7 @@ public class MinecraftTest extends SingleClassesTestBase {
           }
 
           @Override
-          public void saveClassEntry(String path, String archiveName, String qualifiedName, String entryName, String content) {
+          public void saveClassEntry(String path, String archiveName, String qualifiedName, String entryName, String content, int[] mapping) {
             RESULTS.put(qualifiedName, content);
           }
         };

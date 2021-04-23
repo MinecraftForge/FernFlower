@@ -194,6 +194,9 @@ public class ContextUnit {
               DecompilerContext.setCurrentContext(clCtx.ctx);
               clCtx.classContent = decompiledData.getClassContent(clCtx.cl);
               clCtx.shouldContinue = clCtx.classContent != null;
+              if (DecompilerContext.getOption(IFernflowerPreferences.BYTECODE_SOURCE_MAPPING)) {
+                clCtx.mapping = DecompilerContext.getBytecodeSourceMapper().getOriginalLinesMapping();
+              }
               DecompilerContext.setCurrentContext(null);
             }));
           }
@@ -203,7 +206,7 @@ public class ContextUnit {
 
         for (final ClassContext clCtx : toProcess) {
           if (clCtx.shouldContinue) {
-            resultSaver.saveClassEntry(archivePath, filename, clCtx.cl.qualifiedName, clCtx.entryName, clCtx.classContent);
+            resultSaver.saveClassEntry(archivePath, filename, clCtx.cl.qualifiedName, clCtx.entryName, clCtx.classContent, clCtx.mapping);
           }
         }
 
@@ -240,6 +243,7 @@ public class ContextUnit {
     public boolean shouldContinue;
     public DecompilerContext ctx;
     String classContent;
+    int[] mapping;
 
     private ClassContext(StructClass cl, String entryName) {
       this.cl = cl;

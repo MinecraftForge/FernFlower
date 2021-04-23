@@ -63,6 +63,8 @@ public interface IFernflowerPreferences {
 
   String SKIP_EXTRA_FILES = "sef";
 
+  String DUMP_CODE_LINES = "dcl";
+
   Map<String, Object> DEFAULTS = getDefaults();
 
   static Map<String, Object> getDefaults() {
@@ -115,6 +117,7 @@ public interface IFernflowerPreferences {
     defaults.put(USE_JAD_VARNAMING, "0");
     defaults.put(USE_JAD_PARAMETER_RENAMING, "0");
     defaults.put(SKIP_EXTRA_FILES, "0");
+    defaults.put(DUMP_CODE_LINES, "1");
 
     return Collections.unmodifiableMap(defaults);
   }

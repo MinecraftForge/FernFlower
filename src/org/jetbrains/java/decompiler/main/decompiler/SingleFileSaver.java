@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.jar.JarFile;
@@ -62,7 +63,7 @@ public class SingleFileSaver implements IResultSaver {
 
   @Override
   public void saveDirEntry(String path, String archiveName, String entryName) {
-    saveClassEntry(path, archiveName, null, entryName, null);
+    saveEntryData(path, archiveName, entryName, null, null);
   }
 
   @Override
@@ -88,16 +89,22 @@ public class SingleFileSaver implements IResultSaver {
   }
 
   @Override
-  public void saveClassEntry(String path, String archiveName, String qualifiedName, String entryName, String content) {
+  public void saveClassEntry(String path, String archiveName, String qualifiedName, String entryName, String content, int[] mapping) {
+    saveEntryData(path, archiveName, entryName, content.getBytes(StandardCharsets.UTF_8), getCodeLineData(mapping));
+  }
+
+  private void saveEntryData(String path, String archiveName, String entryName, byte[] content, byte[] extra) {
     if (!checkEntry(entryName))
         return;
 
     try {
       ZipEntry entry = new ZipEntry(entryName);
       entry.setTime(STABLE_ZIP_TIMESTAMP);
+      if (extra != null)
+        entry.setExtra(extra);
       output.putNextEntry(entry);
       if (content != null)
-          output.write(content.getBytes("UTF-8"));
+        output.write(content);
     }
     catch (IOException ex) {
       String message = "Cannot write entry " + entryName + " to " + target;

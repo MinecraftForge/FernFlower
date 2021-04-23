@@ -261,7 +261,7 @@ public class ConsoleDecompiler implements IBytecodeProvider, IResultSaver {
 
   @Override
   public void saveDirEntry(String path, String archiveName, String entryName) {
-    saveClassEntry(path, archiveName, null, entryName, null);
+    saveEntryData(path, archiveName, entryName, null, null);
   }
 
   @Override
@@ -291,7 +291,11 @@ public class ConsoleDecompiler implements IBytecodeProvider, IResultSaver {
   }
 
   @Override
-  public void saveClassEntry(String path, String archiveName, String qualifiedName, String entryName, String content) {
+  public void saveClassEntry(String path, String archiveName, String qualifiedName, String entryName, String content, int[] mapping) {
+    saveEntryData(path, archiveName, entryName, content.getBytes(StandardCharsets.UTF_8), getCodeLineData(mapping));
+  }
+
+  public void saveEntryData(String path, String archiveName, String entryName, byte[] content, byte[] extra) {
     String file = new File(getAbsolutePath(path), archiveName).getPath();
 
     if (!checkEntry(entryName, file)) {
@@ -302,9 +306,12 @@ public class ConsoleDecompiler implements IBytecodeProvider, IResultSaver {
       ZipOutputStream out = mapArchiveStreams.get(file);
       ZipEntry entry = new ZipEntry(entryName);
       entry.setTime(STABLE_ZIP_TIMESTAMP);
+      if (extra != null) {
+        entry.setExtra(extra);
+      }
       out.putNextEntry(entry);
       if (content != null) {
-        out.write(content.getBytes(StandardCharsets.UTF_8));
+        out.write(content);
       }
     }
     catch (IOException ex) {

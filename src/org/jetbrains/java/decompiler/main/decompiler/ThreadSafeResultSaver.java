@@ -77,7 +77,7 @@ public class ThreadSafeResultSaver implements IResultSaver {
 
   @Override
   public void saveDirEntry(String path, String archiveName, String entryName) {
-    saveClassEntry(path, archiveName, null, entryName, null);
+    saveEntryData(path, archiveName, entryName, null, null);
   }
 
   @Override
@@ -106,7 +106,11 @@ public class ThreadSafeResultSaver implements IResultSaver {
   }
 
   @Override
-  public void saveClassEntry(String path, String archiveName, String qualifiedName, String entryName, String content) {
+  public void saveClassEntry(String path, String archiveName, String qualifiedName, String entryName, String content, int[] mapping) {
+    saveEntryData(path, archiveName, entryName, content.getBytes(StandardCharsets.UTF_8), getCodeLineData(mapping));
+  }
+
+  private void saveEntryData(String path, String archiveName, String entryName, byte[] content, byte[] extra) {
     String file = new File(getAbsolutePath(path), archiveName).getPath();
     ArchiveContext ctx = getCtx(file);
     if (ctx == null) {
@@ -118,9 +122,12 @@ public class ThreadSafeResultSaver implements IResultSaver {
     try {
       ZipEntry entry = new ZipEntry(entryName);
       entry.setTime(STABLE_ZIP_TIMESTAMP);
+      if (extra != null) {
+        entry.setExtra(extra);
+      }
       ctx.stream.putNextEntry(entry);
       if (content != null) {
-        ctx.stream.write(content.getBytes(StandardCharsets.UTF_8));
+        ctx.stream.write(content);
       }
     } catch (IOException e) {
       DecompilerContext.getLogger().writeMessage("Cannot write entry " + entryName + " to " + file, e);
