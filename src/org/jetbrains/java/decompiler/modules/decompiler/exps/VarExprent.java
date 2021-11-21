@@ -28,7 +28,6 @@ import org.jetbrains.java.decompiler.struct.match.MatchNode;
 import org.jetbrains.java.decompiler.struct.match.MatchNode.RuleValue;
 import org.jetbrains.java.decompiler.util.TextBuffer;
 
-import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collections;
 import java.util.List;
@@ -88,8 +87,8 @@ public class VarExprent extends Exprent {
   }
 
   @Override
-  public List<Exprent> getAllExprents() {
-    return new ArrayList<>();
+  public List<Exprent> getAllExprents(List<Exprent> lst) {
+    return lst;
   }
 
   @Override
