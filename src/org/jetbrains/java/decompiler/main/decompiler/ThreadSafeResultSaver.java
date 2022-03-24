@@ -5,13 +5,14 @@ import org.jetbrains.java.decompiler.main.DecompilerContext;
 import org.jetbrains.java.decompiler.main.extern.IFernflowerLogger;
 import org.jetbrains.java.decompiler.main.extern.IResultSaver;
 import org.jetbrains.java.decompiler.util.InterpreterUtil;
+import org.jetbrains.java.decompiler.util.ZipFileCache;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
@@ -23,11 +24,11 @@ import java.util.zip.ZipOutputStream;
  */
 //TODO, Split off default impl inside ConsoleDecompiler and make this extend that.
 public class ThreadSafeResultSaver implements IResultSaver {
-
-  private final Map<String, ArchiveContext> archiveContexts = new HashMap<>();
+  private final Map<String, ArchiveContext> archiveContexts = new ConcurrentHashMap<>();
   private final File target;
   private final boolean archiveMode;//Latch for Archive mode.
   private ArchiveContext singeArchiveCtx;
+  private final ZipFileCache sources = new ZipFileCache();
 
   public ThreadSafeResultSaver(File target) {
     this.target = target;
@@ -90,7 +91,8 @@ public class ThreadSafeResultSaver implements IResultSaver {
     if (!ctx.addEntry(entryName)) {
       return;
     }
-    try (ZipFile srcArchive = new ZipFile(new File(source))) {
+    try {
+      final ZipFile srcArchive = this.sources.get(source);
       ZipEntry entry = srcArchive.getEntry(entryName);
       if (entry != null) {
         try (InputStream in = srcArchive.getInputStream(entry)) {
@@ -192,6 +194,19 @@ public class ThreadSafeResultSaver implements IResultSaver {
     } catch (IOException ex) {
       DecompilerContext.getLogger().writeMessage("Cannot write class file " + file, ex);
     }
+  }
+
+  @Override
+  public void close() throws IOException {
+    if (!this.archiveContexts.isEmpty()) {
+      for (final Map.Entry<String, ArchiveContext> entry : this.archiveContexts.entrySet()) {
+        DecompilerContext.getLogger().writeMessage("Unclosed archive detected at end of run in " + entry.getKey(), IFernflowerLogger.Severity.ERROR);
+        entry.getValue().stream.close();
+      }
+      this.archiveContexts.clear();
+    }
+
+    this.sources.close();
   }
 
   private String getAbsolutePath(String path) {

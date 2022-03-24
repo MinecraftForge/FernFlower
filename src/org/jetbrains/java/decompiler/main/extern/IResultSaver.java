@@ -3,11 +3,12 @@ package org.jetbrains.java.decompiler.main.extern;
 
 import org.jetbrains.java.decompiler.main.DecompilerContext;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.jar.Manifest;
 
-public interface IResultSaver {
+public interface IResultSaver extends AutoCloseable {
   long STABLE_ZIP_TIMESTAMP = 0x386D4380; // 01/01/2000 00:00:00 java 8 breaks when using 0.
 
   void saveFolder(String path);
@@ -32,6 +33,9 @@ public interface IResultSaver {
   }
 
   void closeArchive(String path, String archiveName);
+
+  @Override
+  default void close() throws IOException {}
 
   default byte[] getCodeLineData(int[] mappings) {
     if (mappings == null || mappings.length == 0 || !DecompilerContext.getOption(IFernflowerPreferences.DUMP_CODE_LINES)) {

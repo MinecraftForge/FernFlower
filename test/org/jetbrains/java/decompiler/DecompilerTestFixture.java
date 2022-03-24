@@ -75,7 +75,7 @@ public class DecompilerTestFixture {
       }
     }
     finally {
-      decompiler.close();
+      decompiler.clear();
     }
   }
 
@@ -174,7 +174,7 @@ public class DecompilerTestFixture {
       }
     }
 
-    void close() {
+    void clear() {
       for (ZipFile file : zipFiles.values()) {
         try {
           file.close();

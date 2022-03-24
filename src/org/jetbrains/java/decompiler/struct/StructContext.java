@@ -3,6 +3,7 @@ package org.jetbrains.java.decompiler.struct;
 
 import org.jetbrains.java.decompiler.main.DecompilerContext;
 import org.jetbrains.java.decompiler.main.extern.IResultSaver;
+import org.jetbrains.java.decompiler.main.extern.IFernflowerLogger;
 import org.jetbrains.java.decompiler.main.extern.IFernflowerLogger.Severity;
 import org.jetbrains.java.decompiler.struct.gen.generics.GenericMain;
 import org.jetbrains.java.decompiler.struct.gen.generics.GenericMethodDescriptor;
@@ -158,7 +159,7 @@ public class StructContext {
             StructClass cl = StructClass.create(new DataInputFullStream(bytes), isOwn, loader);
             classes.put(cl.qualifiedName, cl);
             unit.addClass(cl, name);
-            loader.addClassLink(cl.qualifiedName, new LazyLoader.Link(file.getAbsolutePath(), name));
+            loader.addClassLink(cl.qualifiedName, new LazyLoader.Link(file.getAbsolutePath(), name, bytes));
           }
           else {
             unit.addOtherEntry(file.getAbsolutePath(), name);
@@ -250,5 +251,13 @@ public class StructContext {
   public String renameAbstractParameter(String className, String methodName, String descriptor, int index, String _default) {
     List<String> params = this.abstractNames.get(className + ' ' + methodName + ' ' + descriptor);
     return params != null && index < params.size() ? params.get(index) : _default;
+  }
+
+  public void clear() {
+    try {
+      this.saver.close();
+    } catch (final IOException ex) {
+      DecompilerContext.getLogger().writeMessage("Failed to close out result saver", IFernflowerLogger.Severity.ERROR, ex);
+    }
   }
 }

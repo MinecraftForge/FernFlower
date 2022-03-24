@@ -16,11 +16,13 @@ import java.util.zip.ZipOutputStream;
 import org.jetbrains.java.decompiler.main.DecompilerContext;
 import org.jetbrains.java.decompiler.main.extern.IFernflowerLogger;
 import org.jetbrains.java.decompiler.main.extern.IResultSaver;
+import org.jetbrains.java.decompiler.util.ZipFileCache;
 
 public class SingleFileSaver implements IResultSaver {
   private final File target;
   private ZipOutputStream output;
   private Set<String> entries = new HashSet<>();
+  private final ZipFileCache openZips = new ZipFileCache();
 
   public SingleFileSaver(File target) {
     this.target = target;
@@ -71,7 +73,8 @@ public class SingleFileSaver implements IResultSaver {
     if (!checkEntry(entryName))
       return;
 
-    try (ZipFile srcArchive = new ZipFile(new File(source))) {
+    try {
+      final ZipFile srcArchive = this.openZips.get(source);
       ZipEntry entry = srcArchive.getEntry(entryName);
       if (entry != null) {
         try (InputStream in = srcArchive.getInputStream(entry)) {
@@ -122,6 +125,11 @@ public class SingleFileSaver implements IResultSaver {
     catch (IOException ex) {
       DecompilerContext.getLogger().writeMessage("Cannot close " + target, IFernflowerLogger.Severity.WARN);
     }
+  }
+
+  @Override
+  public void close() throws IOException {
+    this.openZips.close();
   }
 
   private boolean checkEntry(String entryName) {
