@@ -205,6 +205,8 @@ public class MethodProcessorRunnable implements Runnable {
       StackVarsProcessor.simplifyStackVars(root, mt, cl);
       varProc.setVarVersions(root);
 
+      MethodHandleDescriptorHelper.changeMethodHandleDescriptorsStats(root);
+
       LabelHelper.identifyLabels(root);
 
       if (TryHelper.enhanceTryStats(root, mt)) {
