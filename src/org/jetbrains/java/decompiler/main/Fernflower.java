@@ -17,6 +17,7 @@ import org.jetbrains.java.decompiler.util.ClasspathScanner;
 
 import java.io.File;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -182,11 +183,14 @@ public class Fernflower implements IDecompiledData {
     }
   }
 
+  @SuppressWarnings("unchecked")
   @Override
   public String getClassContent(StructClass cl) {
     try {
       TextBuffer buffer = new TextBuffer(ClassesProcessor.AVERAGE_CLASS_SIZE);
-      buffer.append(DecompilerContext.getProperty(IFernflowerPreferences.BANNER).toString());
+      for (var line : ((List<String>)DecompilerContext.getProperty(IFernflowerPreferences.BANNER))) {
+        buffer.append(line).appendLineSeparator();
+      }
       classProcessor.writeClass(cl, buffer);
       return buffer.toString();
     }

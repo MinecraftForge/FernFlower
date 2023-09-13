@@ -6,6 +6,7 @@ import org.jetbrains.java.decompiler.main.DecompilerContext;
 import org.jetbrains.java.decompiler.main.Fernflower;
 import org.jetbrains.java.decompiler.main.extern.IBytecodeProvider;
 import org.jetbrains.java.decompiler.main.extern.IFernflowerLogger;
+import org.jetbrains.java.decompiler.main.extern.IFernflowerPreferences;
 import org.jetbrains.java.decompiler.main.extern.IResultSaver;
 import org.jetbrains.java.decompiler.util.InterpreterUtil;
 import org.jetbrains.java.decompiler.util.ZipFileCache;
@@ -69,12 +70,38 @@ public class ConsoleDecompiler implements IBytecodeProvider, IResultSaver {
     List<File> sources = new ArrayList<>();
     List<File> libraries = new ArrayList<>();
     Set<String> whitelist = new HashSet<>();
+    List<String> banner = new ArrayList<>();
 
     boolean isOption = true;
     for (int i = 0; i < args.length - 1; ++i) { // last parameter - destination
       String arg = args[i];
 
-      if (isOption && arg.length() > 5 && arg.charAt(0) == '-' && arg.charAt(4) == '=') {
+      if (arg.startsWith("-banner")) {
+        String path = null;
+        if (args[i].startsWith("-banner=")) {
+          path = args[i].substring(8);
+        }
+        else if (args.length > i + 1) {
+          path = args[++i];
+        }
+        else {
+          System.out.println("Must specify a file when using -banner argument.");
+          return;
+        }
+        Path file = Paths.get(path);
+        if (!Files.exists(file)) {
+          System.out.println("error: missing banner file '" + path + "'");
+          return;
+        }
+        try (Stream<String> stream = Files.lines(file)) {
+          stream.forEach(banner::add);
+        } catch (IOException e) {
+          System.out.println("error: Failed to read banner file '" + path + "'");
+          throw new RuntimeException(e);
+        }
+        mapOptions.put(IFernflowerPreferences.BANNER, banner);
+      }
+      else if (isOption && arg.length() > 5 && arg.charAt(0) == '-' && arg.charAt(4) == '=') {
         String value = arg.substring(5);
         if ("true".equalsIgnoreCase(value)) {
           value = "1";
@@ -83,7 +110,11 @@ public class ConsoleDecompiler implements IBytecodeProvider, IResultSaver {
           value = "0";
         }
 
-        mapOptions.put(arg.substring(1, 4), value);
+        String key = arg.substring(1, 4);
+        if (IFernflowerPreferences.BANNER.equals(key))
+          mapOptions.put(key, Arrays.asList(value));
+        else
+          mapOptions.put(arg.substring(1, 4), value);
       }
       else {
         isOption = false;

@@ -111,7 +111,7 @@ public interface IFernflowerPreferences {
     defaults.put(RENAME_ENTITIES, "0");
     defaults.put(NEW_LINE_SEPARATOR, (InterpreterUtil.IS_WINDOWS ? "0" : "1"));
     defaults.put(INDENT_STRING, "   ");
-    defaults.put(BANNER, "");
+    defaults.put(BANNER, Collections.emptyList());
     defaults.put(UNIT_TEST_MODE, "0");
     defaults.put(DUMP_ORIGINAL_LINES, "0");
     defaults.put(USE_JAD_VARNAMING, "0");
