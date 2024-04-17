@@ -102,7 +102,9 @@ public class MethodProcessorRunnable implements Runnable {
 
     DeadCodeHelper.removeGoTos(graph);
 
-    ExceptionDeobfuscator.duplicateMergedCatchBlocks(graph, cl);
+    // Lex - 2024-04-17 - Disabled as it breaks try-withs. They duplicate the catch blocks for some reason, To make parsing with existing code easier?
+    // Don't know, however it breaks a lot of Non-Pattern related code in MC's codebase so disable it until I can re-address this feature.
+    //ExceptionDeobfuscator.duplicateMergedCatchBlocks(graph, cl);
 
     ExceptionDeobfuscator.removeCircularRanges(graph);
 
