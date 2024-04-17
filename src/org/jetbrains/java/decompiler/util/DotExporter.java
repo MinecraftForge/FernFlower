@@ -3,15 +3,20 @@ package org.jetbrains.java.decompiler.util;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Map.Entry;
 
+import org.jetbrains.java.decompiler.code.CodeConstants;
 import org.jetbrains.java.decompiler.code.cfg.BasicBlock;
 import org.jetbrains.java.decompiler.code.cfg.ControlFlowGraph;
+import org.jetbrains.java.decompiler.main.DecompilerContext;
+import org.jetbrains.java.decompiler.modules.decompiler.ExprProcessor;
 import org.jetbrains.java.decompiler.modules.decompiler.StatEdge;
 import org.jetbrains.java.decompiler.modules.decompiler.sforms.DirectGraph;
 import org.jetbrains.java.decompiler.modules.decompiler.sforms.DirectNode;
@@ -20,6 +25,8 @@ import org.jetbrains.java.decompiler.modules.decompiler.vars.VarVersionEdge;
 import org.jetbrains.java.decompiler.modules.decompiler.vars.VarVersionNode;
 import org.jetbrains.java.decompiler.modules.decompiler.vars.VarVersionsGraph;
 import org.jetbrains.java.decompiler.struct.StructMethod;
+import org.jetbrains.java.decompiler.struct.gen.MethodDescriptor;
+import org.jetbrains.java.decompiler.struct.gen.VarType;
 import org.jetbrains.java.decompiler.util.FastSparseSetFactory.FastSparseSet;
 
 public class DotExporter {
@@ -69,41 +76,39 @@ public class DotExporter {
   private static String toDotFormat(ControlFlowGraph graph, boolean showMultipleEdges) {
 
     StringBuffer buffer = new StringBuffer();
+    var nl = "\r\n";
 
-    buffer.append("digraph G {\r\n");
+    buffer.append("digraph G {").append(nl);
 
     List<BasicBlock> blocks = graph.getBlocks();
     for(int i=0;i<blocks.size();i++) {
       BasicBlock block = blocks.get(i);
+      buffer.append(block.id).append('[').append(nl)
+        .append("  shape=box").append(nl)
+        .append("  label=\"").append(block.toString().replaceAll(DecompilerContext.getNewLineSeparator(), "\\\\l")).append('"').append(nl)
+        .append(']').append(nl);
 
-      buffer.append(block.id+" [shape=box,label=\""+block.id+"\"];\r\n");
 
-
-      List<BasicBlock> suc = block.getSuccessors();
-      if(!showMultipleEdges) {
-        HashSet<BasicBlock> set = new HashSet<>();
-        set.addAll(suc);
-        suc = Collections.list(Collections.enumeration(set));
-      }
-      for(int j=0;j<suc.size();j++) {
-        buffer.append(block.id+"->"+suc.get(j).id+";\r\n");
+      for (var edge : unique(block.getSuccessors(), showMultipleEdges)) {
+    	buffer.append(block.id).append(" -> ").append(edge.id).append(';').append(nl);
       }
 
-
-      suc = block.getSuccessorExceptions();
-      if(!showMultipleEdges) {
-        HashSet<BasicBlock> set = new HashSet<>();
-        set.addAll(suc);
-        suc = Collections.list(Collections.enumeration(set));
-      }
-      for(int j=0;j<suc.size();j++) {
-        buffer.append(block.id+" -> "+suc.get(j).id+" [style=dotted];\r\n");
+      for (var edge : unique(block.getSuccessorExceptions(), showMultipleEdges)) {
+    	buffer.append(block.id).append(" -> ").append(edge.id).append(" [style=dotted];").append(nl);
       }
     }
 
     buffer.append("}");
 
     return buffer.toString();
+  }
+
+  private static Collection<BasicBlock> unique(List<BasicBlock> blocks, boolean showMultipleEdges) {
+	if (showMultipleEdges)
+      return blocks;
+	var set = new LinkedHashSet<BasicBlock>();
+	set.addAll(blocks);
+	return set;
   }
 
   private static String toDotFormat(VarVersionsGraph graph) {
@@ -135,10 +140,7 @@ public class DotExporter {
 
     buffer.append("digraph G {\r\n");
 
-    List<DirectNode> blocks = graph.nodes;
-    for(int i=0;i<blocks.size();i++) {
-      DirectNode block = blocks.get(i);
-
+    for(var block : graph.nodes) {
       StringBuilder label = new StringBuilder(block.id);
       if (vars != null && vars.containsKey(block.id)) {
         SFormsFastMapDirect map = vars.get(block.id);
@@ -179,15 +181,27 @@ public class DotExporter {
     File root = new File(DOTS_FOLDER + mt.getClassQualifiedName());
     if (!root.isDirectory())
       root.mkdirs();
-    return new File(root,
-      mt.getName().replace('<', '.').replace('>', '_') +
-      mt.getDescriptor().replace('/', '.') +
-      '_' + suffix + ".dot");
+    var name = new StringBuilder();
+    name.append(mt.getName().replace('<', '_').replace('>', '_'));
+    name.append('(');
+    var desc = MethodDescriptor.parseDescriptor(mt.getDescriptor());
+    for (var par : desc.params) {
+      name.append(ExprProcessor.getCastTypeName(par, Collections.emptyList())).append(", ");
+    }
+    if (desc.params.length > 0) {
+      name.delete(name.length() - 2, name.length());
+    }
+    name.append(')');
+    name.append(ExprProcessor.getCastTypeName(desc.ret, Collections.emptyList()));
+    name.append('_').append(suffix).append(".dot");
+
+    return new File(root, name.toString());
   }
 
   public static void toDotFile(DirectGraph dgraph, StructMethod mt, String suffix) {
     toDotFile(dgraph, mt, suffix, null);
   }
+
   public static void toDotFile(DirectGraph dgraph, StructMethod mt, String suffix, Map<String, SFormsFastMapDirect> vars) {
     if (!DUMP_DOTS)
       return;
