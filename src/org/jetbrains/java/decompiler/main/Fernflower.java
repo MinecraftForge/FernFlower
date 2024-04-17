@@ -178,7 +178,7 @@ public class Fernflower implements IDecompiledData {
       classProcessor.processClass(cl);
       return true;
     } catch (Throwable t) {
-      DecompilerContext.getLogger().writeMessage("Class " + cl.qualifiedName + " couldn't be processed.", t);
+      DecompilerContext.getLogger().logError("Class " + cl.qualifiedName + " couldn't be processed.", t);
       return false;
     }
   }
@@ -198,7 +198,7 @@ public class Fernflower implements IDecompiledData {
       throw e;
     }
     catch (Throwable t) {
-      DecompilerContext.getLogger().writeMessage("Class " + cl.qualifiedName + " couldn't be fully decompiled.", t);
+      DecompilerContext.getLogger().logError("Class " + cl.qualifiedName + " couldn't be fully decompiled.", t);
       return null;
     }
   }

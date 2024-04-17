@@ -182,9 +182,8 @@ public class ClassWriter {
                   buffer.append(codeBuffer);
                 }
                 catch (Throwable ex) {
-                  DecompilerContext.getLogger().writeMessage("Method " + mt.getName() + " " + mt.getDescriptor() + " couldn't be written.",
-                    IFernflowerLogger.Severity.WARN,
-                    ex);
+                  String message = "Method " + mt.getName() + " " + mt.getDescriptor() + " in class " + cl.qualifiedName + " couldn't be written.";
+                  DecompilerContext.getLogger().logError(message, ex);
                   methodWrapper.decompiledWithErrors = true;
                   buffer.append(" // $FF: Couldn't be decompiled");
                 }
@@ -940,7 +939,7 @@ public class ClassWriter {
           }
           catch (Throwable t) {
             String message = "Method " + mt.getName() + " " + mt.getDescriptor() + " in class " + node.classStruct.qualifiedName + " couldn't be written.";
-            DecompilerContext.getLogger().writeMessage(message, IFernflowerLogger.Severity.WARN, t);
+            DecompilerContext.getLogger().logError(message, t);
             methodWrapper.decompiledWithErrors = true;
           }
         }
@@ -1067,8 +1066,8 @@ public class ClassWriter {
             buffer.append(root.toJava(indent, tracer));
           }
           catch (Throwable t) {
-            String message = "Method " + mt.getName() + " " + mt.getDescriptor() + " couldn't be written.";
-            DecompilerContext.getLogger().writeMessage(message, IFernflowerLogger.Severity.WARN, t);
+            String message = "Method " + mt.getName() + " " + mt.getDescriptor() + " in class " + classWrapper.getClassStruct().qualifiedName + " couldn't be written.";
+            DecompilerContext.getLogger().logError(message, t);
             methodWrapper.decompiledWithErrors = true;
           }
         }

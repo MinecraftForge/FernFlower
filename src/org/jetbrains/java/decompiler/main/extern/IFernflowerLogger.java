@@ -1,6 +1,9 @@
 // Copyright 2000-2017 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file.
 package org.jetbrains.java.decompiler.main.extern;
 
+import java.util.Collections;
+import java.util.List;
+
 public abstract class IFernflowerLogger {
 
   public enum Severity {
@@ -50,4 +53,10 @@ public abstract class IFernflowerLogger {
   public void startWriteClass(String className) { }
 
   public void endWriteClass() { }
+
+  public void logError(String message, Throwable t) {
+    writeMessage(message, Severity.ERROR, t);
+  }
+
+  public List<String> getErrors() { return Collections.emptyList(); }
 }
